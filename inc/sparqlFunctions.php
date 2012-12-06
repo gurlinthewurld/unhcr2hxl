@@ -21,12 +21,14 @@ function sparqlUpdate($query)
 
         
         $response = curl_exec($ch);
-/*
+
+        echo('<br>');
+        echo('$query: ' . htmlspecialchars($query));
         echo('<br>');
         echo($response);
         echo curl_getinfo($ch, CURLINFO_HTTP_CODE);
         echo('<br>');
-        */
+        
         
         if (curl_getinfo($ch, CURLINFO_HTTP_CODE) == 200)
         {

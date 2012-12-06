@@ -6,7 +6,7 @@ include('inc/init.php');
 $log = new Logging();
 $log->file($logETL);
 
-$sliceSize = 100; // 100
+$sliceSize = 100; 
 
 $sources = '';
 
@@ -26,40 +26,38 @@ if (!array_key_exists("slice", $_GET))
         $sparqlQueryArray = array();
         
         $sources = translateSources();
-    
+        
         while($row = mysqli_fetch_array($dbContent))
         {
-            /*
-            echo "<br />------------------------- new row---------------------------------------------------<br />";
-            print_r($row);
-            */
+            $query =  '';
+            
             if (isRowOk($row))
             {
                 $containerInfo = extractRowData($row);
                 $query = htmlspecialchars_decode($ttlPrefixes) . ' INSERT DATA { GRAPH <' . $containerInfo[0][0] . '> { ' . $containerInfo[1][0] . '}}';
 
-                //echo htmlspecialchars($query);
-
                 array_push($sparqlQueryArray, $query);
 
                 $dropScript .= $containerInfo[2];
+            }
+            else
+            {
+                $log->write("Row not matching to a location or not containing interesting data.");
             }
         }
 
         //$rowCount = $dbContent->num_rows;
         $rowCount = count($sparqlQueryArray);
-        /*echo '<br />row count: ';
+        
+        echo '<br />row count: ';
         echo $rowCount;
-        echo '<br />';*/
+        echo '<br />';
+        
         $splitCount = ceil($rowCount / $sliceSize);
         $_SESSION['splitCount'] = $splitCount;
 
         // The data is sent to the session for the following steps
         $_SESSION['sparqlQueryArray'] = serialize($sparqlQueryArray);
-
-        $fileHandle = fopen($scriptCurlDrop, 'w') or die("can't open file");
-        fwrite($fileHandle, $dropScript);
-        fclose($fileHandle);
 
         // Link to access the following steps
         echo "There are $splitCount chunks of database to parse.<br />";
@@ -75,20 +73,13 @@ if (!array_key_exists("slice", $_GET))
 }
 else // Processing the data
 {
-    //echo $_GET["slice"];
     $slice = $_GET["slice"];
     
-
     $sparqlQueryArray = unserialize($_SESSION['sparqlQueryArray']);
     $splitCount = $_SESSION['splitCount'];
     
     $splittedQueryArray = array_chunk($sparqlQueryArray, $sliceSize);
-    /*
-        echo '<br />';
-        echo $slice;
-        echo '<br />';
-        echo count($splittedQueryArray);
-    */
+
     if (count($splittedQueryArray) != $slice)
     {
         echo "There are $splitCount chunks of database to parse.<br />";
@@ -97,26 +88,16 @@ else // Processing the data
         echo '<br />';
     }
 
-    
-/*
-        echo "<br> splittedQueryArray: ";
-    echo count($splittedQueryArray);
-        echo " <br>";
-    echo count($splittedQueryArray[0]);
-*/
-    
     $errorCount = 0;
     $successCount = 0;
     
     for($k = 0; $k < $sliceSize; $k++)
     {
-        if (!array_key_exists($k, $splittedQueryArray[$slice -1])) break;
+        if (!array_key_exists($k, $splittedQueryArray[$slice - 1])) break;
         
-        //echo $splittedQueryArray[$slice -1][$k];
+        //echo htmlspecialchars($splittedQueryArray[$slice - 1][$k]);
 
-        //echo htmlspecialchars($query);
-        
-        if (!sparqlUpdate($splittedQueryArray[$slice -1][$k]))
+        if (!sparqlUpdate($splittedQueryArray[$slice - 1][$k]))
         {
             $errorCount++;
         }
@@ -124,15 +105,15 @@ else // Processing the data
         {
             $successCount++;
         }
+  
     }
-        echo "<br /><br />";
-        echo "errorCount: ";
-        echo $errorCount;
-        echo "<br>";
-        echo "successCount: ";
-        echo $successCount;
-        echo "<br>";
-
+    echo "<br /><br />";
+    echo "errorCount: ";
+    echo $errorCount;
+    echo "<br>";
+    echo "successCount: ";
+    echo $successCount;
+    echo "<br>";
 }
 
 ?>

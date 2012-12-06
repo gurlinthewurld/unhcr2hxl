@@ -6,7 +6,8 @@
 $logETL = '../logs/unhcr2hxl_etl.log';
 $logCreator = '../logs/unhcr2hxl_creators.log';
 $logDelete = '../logs/unhcr2hxl_delete.log';
-$scriptCurlDrop = '../logs/unhcr2hxl_curlDropScript.txt';
+$logFile = '../logs/unhcr2hxl_default.log';
+//$scriptCurlDrop = '../logs/unhcr2hxl_curlDropScript.txt';
 
 /*
  * Configuration
@@ -22,7 +23,8 @@ $sourceConfig = parse_ini_file($sourceConfigFile);
 $currentEmergency = 'http://hxl.humanitarianresponse.info/data/emergencies/mali2012test';
 $timeStampLocationContainer = "1234567890.111111";
 $reporter = 'vincent_perrin';
-$defaultPopulationType = 'RefugeesAsylumSeekers';
+$reporterOrganisationAbbr = 'unocha';
+$defaultPopulationType = 'refugeesasylumseekers';
 
 /*
  * MySQL
@@ -30,38 +32,28 @@ $defaultPopulationType = 'RefugeesAsylumSeekers';
 $mysqlQueryCountRows = "SELECT COUNT(*) FROM unhcr2hxl_datarefpop ";
 
 $mysqlQuerySources = "SELECT * FROM unhcr2hxl_sourcetranslation";
-/*
-$mysqlQueryAllPopulation = "SELECT DISTINCT unhcr2hxl_datarefpop.ReportDate, unhcr2hxl_settlementpcode.pcode AS settlementPcode, unhcr2hxl_countrypcode.pcode AS currentCountryPcode, 
-unhcr2hxl_datarefpop.origin, unhcr2hxl_datarefpop.TotalRefPop_HH, unhcr2hxl_datarefpop.TotalRefPop_I, 
-unhcr2hxl_datarefpop.DEM_04_M, unhcr2hxl_datarefpop.DEM_04_F, unhcr2hxl_datarefpop.DEM_511_M, unhcr2hxl_datarefpop.DEM_511_F, unhcr2hxl_datarefpop.DEM_1217_M, 
-unhcr2hxl_datarefpop.DEM_1217_F, unhcr2hxl_datarefpop.DEM_1859_M, unhcr2hxl_datarefpop.DEM_1859_F, unhcr2hxl_datarefpop.DEM_60_M, unhcr2hxl_datarefpop.DEM_60_F 
-FROM unhcr2hxl_datarefpop 
-LEFT JOIN unhcr2hxl_settlement ON unhcr2hxl_datarefpop.Settlement = unhcr2hxl_settlement.Id 
-LEFT JOIN unhcr2hxl_settlementpcode ON unhcr2hxl_settlement.Id = unhcr2hxl_settlementpcode.Id 
-LEFT JOIN unhcr2hxl_countrypcode ON unhcr2hxl_settlement.Country = unhcr2hxl_countrypcode.Id 
-WHERE (unhcr2hxl_settlement.SettlementName IS NOT NULL) 
-ORDER BY ReportDate";
-//echo $mysqlQueryAllPopulation;
-*/
-$mysqlQueryManyRows = "SELECT DISTINCT unhcr2hxl_datarefpop.ReportDate,
-unhcr2hxl_datarefpop.UpdatedDate, unhcr2hxl_datarefpop.DataSource AS source, 
-unhcr2hxl_settlementpcode.pcode AS settlementPcode, unhcr2hxl_countrypcode.pcode AS currentCountryPcode,
-unhcr2hxl_datarefpop.origin, unhcr2hxl_datarefpop.TotalRefPop_HH, unhcr2hxl_datarefpop.TotalRefPop_I, 
-unhcr2hxl_datarefpop.DEM_04_M, unhcr2hxl_datarefpop.DEM_04_F, unhcr2hxl_datarefpop.DEM_511_M, 
-unhcr2hxl_datarefpop.DEM_511_F, unhcr2hxl_datarefpop.DEM_1217_M, unhcr2hxl_datarefpop.DEM_1217_F, 
-unhcr2hxl_datarefpop.DEM_1859_M, unhcr2hxl_datarefpop.DEM_1859_F, unhcr2hxl_datarefpop.DEM_60_M, 
-unhcr2hxl_datarefpop.DEM_60_F 
+
+$mysqlQueryLocations = "SELECT easyname
+FROM unhcr2hxl_settlementpcode";
+
+$mysqlQueryManyRows = "SELECT DISTINCT unhcr2hxl_datarefpop.ReportDate, unhcr2hxl_datarefpop.UpdatedDate, 
+unhcr2hxl_datarefpop.DataSource AS source, unhcr2hxl_settlementpcode.aplpcode AS aplpcode, unhcr2hxl_settlementpcode.easyname AS easyname, unhcr2hxl_settlementpcode.pplpcode AS pplpcode, unhcr2hxl_settlementpcode.defaultlocationpcode AS defaultlocationpcode,
+unhcr2hxl_settlementpcode.countrycode AS countrycode, unhcr2hxl_datarefpop.origin, 
+unhcr2hxl_datarefpop.TotalRefPop_HH, unhcr2hxl_datarefpop.TotalRefPop_I, unhcr2hxl_datarefpop.DEM_04_M,
+unhcr2hxl_datarefpop.DEM_04_F, unhcr2hxl_datarefpop.DEM_511_M, unhcr2hxl_datarefpop.DEM_511_F, 
+unhcr2hxl_datarefpop.DEM_1217_M, unhcr2hxl_datarefpop.DEM_1217_F, unhcr2hxl_datarefpop.DEM_1859_M,
+unhcr2hxl_datarefpop.DEM_1859_F, unhcr2hxl_datarefpop.DEM_60_M, unhcr2hxl_datarefpop.DEM_60_F 
 FROM unhcr2hxl_datarefpop 
 LEFT JOIN unhcr2hxl_settlement ON unhcr2hxl_datarefpop.Settlement = unhcr2hxl_settlement.Id 
 LEFT JOIN unhcr2hxl_settlementpcode ON unhcr2hxl_settlement.Id = unhcr2hxl_settlementpcode.Id 
 LEFT JOIN unhcr2hxl_countrypcode ON unhcr2hxl_settlement.Country = unhcr2hxl_countrypcode.Id 
 WHERE (unhcr2hxl_settlement.SettlementName IS NOT NULL) 
 ORDER BY ReportDate DESC 
-LIMIT 200";// Set this value for your tests
+LIMIT 20";// Set this value for your tests
 
 $mysqlQueryAllRows = "SELECT DISTINCT unhcr2hxl_datarefpop.ReportDate, unhcr2hxl_datarefpop.UpdatedDate, 
-unhcr2hxl_datarefpop.DataSource AS source, unhcr2hxl_settlementpcode.pcode AS settlementPcode,
-unhcr2hxl_countrypcode.pcode AS currentCountryPcode, unhcr2hxl_datarefpop.origin, 
+unhcr2hxl_datarefpop.DataSource AS source, unhcr2hxl_settlementpcode.aplpcode AS aplpcode, unhcr2hxl_settlementpcode.easyname AS easyname, unhcr2hxl_settlementpcode.pplpcode AS pplpcode, unhcr2hxl_settlementpcode.defaultlocationpcode AS defaultlocationpcode,
+unhcr2hxl_settlementpcode.countrycode AS countrycode, unhcr2hxl_datarefpop.origin, 
 unhcr2hxl_datarefpop.TotalRefPop_HH, unhcr2hxl_datarefpop.TotalRefPop_I, unhcr2hxl_datarefpop.DEM_04_M,
 unhcr2hxl_datarefpop.DEM_04_F, unhcr2hxl_datarefpop.DEM_511_M, unhcr2hxl_datarefpop.DEM_511_F, 
 unhcr2hxl_datarefpop.DEM_1217_M, unhcr2hxl_datarefpop.DEM_1217_F, unhcr2hxl_datarefpop.DEM_1859_M,
@@ -73,15 +65,8 @@ LEFT JOIN unhcr2hxl_countrypcode ON unhcr2hxl_settlement.Country = unhcr2hxl_cou
 WHERE (unhcr2hxl_settlement.SettlementName IS NOT NULL) 
 ORDER BY ReportDate";//
 
-$mysqlQueryPcodes = "SELECT DISTINCT unhcr2hxl_datarefpop.Settlement, 
-unhcr2hxl_settlement.SettlementName AS settlementName, 
-unhcr2hxl_settlementpcode.pcode AS settlementPcode, 
-unhcr2hxl_countrypcode.pcode AS countryPcode
-FROM unhcr2hxl_datarefpop
-LEFT JOIN unhcr2hxl_settlementpcode ON unhcr2hxl_datarefpop.Settlement = unhcr2hxl_settlementpcode.Id
-LEFT JOIN unhcr2hxl_settlement ON unhcr2hxl_settlement.Id = unhcr2hxl_datarefpop.Settlement
-LEFT JOIN unhcr2hxl_countrypcode ON unhcr2hxl_datarefpop.Country = unhcr2hxl_countrypcode.Id
-WHERE unhcr2hxl_datarefpop.Settlement !=0";
+$mysqlQueryPcodes = "SELECT *
+FROM unhcr2hxl_settlementpcode";
 
 /*
  * SPARQL
@@ -103,24 +88,25 @@ $ttlContainerHeader = "<[%containerUri%]> a hxl:DataContainer .
 <[%containerUri%]> dc:date \"[%reportDate%]\"^^xsd:date . 
 <[%containerUri%]> hxl:validOn \"[%validOn%]\" . 
 <[%containerUri%]> hxl:reportCategory <http://hxl.humanitarianresponse.info/data/reportcategories/humanitarian_profile> . 
-<[%containerUri%]> hxl:reportedBy <http://hxl.humanitarianresponse.info/data/persons/[%reporter%]> . ";
+<[%containerUri%]> hxl:reportedBy <http://hxl.humanitarianresponse.info/data/persons/[%reporterOrg%]/[%reporter%]> . ";
 //echo $ttlContainerHeader;
 
 $ttlContainerHeaderLocations = "<[%containerUri%]> a hxl:DataContainer . 
 <[%containerUri%]> dc:date \"[%reportDate%]\"^^xsd:date . ";
 
-$ttlSubject = "<http://hxl.humanitarianresponse.info/data/[%populationType%]/[%countryPCode%]/[%campPCode%]/[%originPCode%]/[%sex%]/[%age%]>";
-$ttlSex = "[%subject%] hxl:SexCategory <http://hxl.humanitarianresponse.info/data/sexcategories/[%sex%]> . ";
+$ttlSubject = "<http://hxl.humanitarianresponse.info/data/[%populationType%]/[%countryPCode%]/[%campPCode%]/mli/[%originPCode%]/[%sex%]/[%age%]>"; // he pattern is : http://hxl.humanitarianresponse.info/data/populations/country/pcode/nationality/origin/sex/agegroup  
+$ttlSex = "[%subject%] hxl:sexCategory <http://hxl.humanitarianresponse.info/data/sexcategories/[%sex%]> . ";
 $ttlAge = "[%subject%] hxl:AgeGroup <http://hxl.humanitarianresponse.info/data/agegroups/unhcr/[%age%]> . ";
 $ttlPersonCount = "[%subject%] hxl:personCount \"[%personCount%]\"^^xsd:integer . ";
 $ttlHouseholdCount = "[%subject%] hxl:householdCount \"[%householdCount%]\"^^xsd:integer . ";
 $ttlMethod = "[%subject%] hxl:method \"[%method%]\" . ";
 $ttlSource = "[%subject%] hxl:source <http://hxl.humanitarianresponse.info/data/organisations/[%source%]> . ";
 
-$ttlPopDescription = "[%subject%] hxl:atLocation <http://hxl.humanitarianresponse.info/data/locations/apl/[%countryPCode%]/[%campPCode%]> . 
+$ttlPopDescription = "[%subject%] hxl:atLocation <http://hxl.humanitarianresponse.info/data/locations/[%placeType%]/[%countryPCode%]/[%campPCode%]> . 
 [%subject%] rdf:type hxl:RefugeesAsylumSeekers .
 [%ttlSex%]
 [%ttlAge%]
+[%subject%] hxl:placeOfOrigin <http://hxl.humanitarianresponse.info/data/locations/admin/mli/MLI> . 
 [%subject%] hxl:nationality <http://hxl.humanitarianresponse.info/data/locations/admin/mli/MLI> . 
 [%ttlPopCount%]
 [%ttlMethod%]

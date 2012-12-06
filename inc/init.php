@@ -4,7 +4,7 @@
  * 
  */
 
-ini_set('max_execution_time', 360);
+ini_set('max_execution_time', 600);
 
 include_once('inc/sparqllib.php');
 include_once('inc/sparqlFunctions.php');

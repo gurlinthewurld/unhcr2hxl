@@ -5,14 +5,12 @@
  *****************************/
 function extractRowData($row)
 {
-    global $reporter, $ttlContainerHeader, $ttlContainerUri, $ttlPrefixes, $currentEmergency;
+    global $reporter, $reporterOrganisationAbbr, $ttlContainerHeader, $ttlContainerUri, $currentEmergency;
     global $log;
-    //global $timeStamp, $scriptDate;
 
     $containerUriArray = array();
     $containerArray = array();
     
-
     $dateTime = new DateTime();
     $scriptDate = $dateTime->format('Y-m-d H:i:s');
     $timeStamp = microtime(true);
@@ -22,13 +20,9 @@ function extractRowData($row)
     $tempContainerUri = str_replace("[%timeStamp%]", $timeStamp, $ttlContainerUri);
     array_push($containerUriArray, $tempContainerUri);
     
-    //$stringData .= $ttlPrefixes;
-    $reportDate = $row['ReportDate'];
-    if ($row['ReportDate'] != $row['UpdatedDate'])
-    {
-        $reportDate = $row['UpdatedDate'];
-    }
-    $stringData .= makeContainerHeader($scriptDate, $tempContainerUri, $reporter, $ttlContainerHeader, $currentEmergency, $reportDate);
+    $reportDate = $row['ReportDate'];    
+    
+    $stringData .= makeContainerHeader($scriptDate, $tempContainerUri, $reporter, $reporterOrganisationAbbr, $ttlContainerHeader, $currentEmergency, $reportDate);
     $stringData .= makeTtlFromRow($row);
     
     array_push($containerArray, $stringData);	
@@ -38,31 +32,19 @@ function extractRowData($row)
     
     global $storeConfig, $curlDropOneContainer;
     
-    //echo $curlDropOneContainer;
-    //echo "-------------------";
-    
-    
-    
     $tempDrop = str_replace("[%graph%]", $tempContainerUri, $curlDropOneContainer);
     $tempDrop = str_replace("[%userPass%]", $storeConfig['store_username'] . ':' . $storeConfig['store_password'], $tempDrop);
     $tempDrop = str_replace("[%endPoint%]", $storeConfig['store_endpoint'], $tempDrop);
-    
-    
-    //echo $tempDrop;
-    //echo "-------------------";
-    
-    
-    
     
     return array ($containerUriArray, $containerArray, $tempDrop);
 }
 
 /*****************************
- * TODO: if necessary, print each line converting HTML characters into printable ones.
+ * 
  *****************************/
 function printContainers($dbContent)
 {
-    global $reporter, $ttlContainerHeader, $ttlContainerUri, $ttlPrefixes, $currentEmergency;
+    global $reporter, $reporterOrganisationAbbr, $ttlContainerHeader, $ttlContainerUri, $ttlPrefixes, $currentEmergency;
     global $timeStamp, $scriptDate;
 
     global $log;
@@ -95,7 +77,7 @@ function printContainers($dbContent)
         {
             $reportDate = $row['UpdatedDate'];
         }
-        $stringData .= makeContainerHeader($scriptDate, $ttlContainerUri, $reporter, $ttlContainerHeader, $currentEmergency, $reportDate);
+        $stringData .= makeContainerHeader($scriptDate, $ttlContainerUri, $reporter, $reporterOrganisationAbbr, $ttlContainerHeader, $currentEmergency, $reportDate);
         
         $ttfRow = makeTtlFromRow($row);
         if ($ttfRow != false)
@@ -106,15 +88,8 @@ function printContainers($dbContent)
         array_push($containerArray, $stringData);
 
 
-        if($i == 2) break;
+        //if($i == 2) break;
         
-
-    /* If need to write in a file, reuse this code
-    $fileHandle = fopen($ourFileName, 'w') or die("can't open file");
-    fwrite($fileHandle, $stringData);
-    fclose($fileHandle);
- */
-
 			
      }	
      /* to print the list of container URIs and containers */
@@ -131,15 +106,15 @@ function printContainers($dbContent)
 /*******************************
  *
  *****************************/
-function makeContainerHeader($scriptDate, $containerUri,  $reporter, $ttlContainerHeader, $currentEmergency, $reportDate)
+function makeContainerHeader($scriptDate, $containerUri,  $reporter, $reporterOrganisationAbbr, $ttlContainerHeader, $currentEmergency, $reportDate)
 {
     $ttlContainerHeader = str_replace("[%containerUri%]", $containerUri, $ttlContainerHeader);
     if (!is_null($currentEmergency)) $ttlContainerHeader = str_replace("[%currentEmergency%]", $currentEmergency, $ttlContainerHeader);
 
     $ttlContainerHeader = str_replace("[%reportDate%]", $scriptDate, $ttlContainerHeader);
     if (!is_null($reporter)) $ttlContainerHeader = str_replace("[%reporter%]", $reporter, $ttlContainerHeader);
+    if (!is_null($reporterOrganisationAbbr)) $ttlContainerHeader = str_replace("[%reporterOrg%]", $reporterOrganisationAbbr, $ttlContainerHeader);
 
-    //$tempTtlContainerHeader = $ttlContainerHeader;
     if (!is_null($reportDate)) $ttlContainerHeader = str_replace("[%validOn%]", $reportDate, $ttlContainerHeader);
 
     return $ttlContainerHeader;
@@ -154,44 +129,44 @@ function isRowOk($dbRow)
     
     $lookUpSuccessful = false;
     
-    $query= "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-    PREFIX hxl: <http://hxl.humanitarianresponse.info/ns/#>
-
+    $settlementNamePcode = '';
+    
+    if (empty($dbRow['aplpcode'])) 
+    {
+        if (empty($dbRow['pplpcode'])) 
+        {
+            $settlementNamePcode = $dbRow['easyname'];
+        }
+        else
+        {
+            $settlementNamePcode = $dbRow['pplpcode'];
+        }
+    }
+    else
+    {
+        $settlementNamePcode = $dbRow['aplpcode'];
+    }
+    
+    $query= "PREFIX hxl: <http://hxl.humanitarianresponse.info/ns/#>
     SELECT * WHERE {
-    ?location hxl:pcode \"" . $dbRow['settlementPcode'] . "\" .
+    ?location hxl:pcode \"" . $settlementNamePcode . "\" .
     ?location a ?type .
     }";
-/*
-    echo '<br>';
-    echo htmlspecialchars($query);
-    echo '<br>';
-*/ 
-    
-    /*
-    if ($dbRow['settlementPcode'] == "UNHCR-POC-81-Test" ||
-        $dbRow['settlementPcode'] == "UNHCR-POC-80")
-                $log->write($dbRow['settlementPcode'] . " iiiiiiiiiiiiis: ");
-*/
+
     $queryResult = getQueryResults($query);
     if ($queryResult->num_rows() == 0) 
     {
-        $log->write("Error: pcode " . $dbRow['settlementPcode'] . " not found.");
+        $log->write("Error: pcode of " . $dbRow['easyname'] . " not found.");
+        
+        /*
+        echo '<br>-- look up failed: ';
+        echo htmlspecialchars($query);
+        echo '<br>';
+         */
     }
     else 
     {
-        //print_r($queryResult);
-        while($row = $queryResult->fetch_array())
-        {  
-            if ($row["type"] == 'http://hxl.humanitarianresponse.info/ns/#APL')
-            {
-                $lookUpSuccessful = true;
-                //$log->write($dbRow['settlementPcode'] . " found!!!");
-            }
-            else
-            {
-                $log->write($dbRow['settlementPcode'] . " is of type: " . $row["type"] . ".");
-            }
-        } 
+        $lookUpSuccessful = true;
     }
      
     if(countAvailable($dbRow, $dbRow['ReportDate']) &&
@@ -221,7 +196,7 @@ function pcodeLookup($dbRow)
     PREFIX hxl: <http://hxl.humanitarianresponse.info/ns/#>
 
     SELECT * WHERE {
-    ?location hxl:pcode \"" . $dbRow['settlementPcode'] . "\" .
+    ?location hxl:pcode \"" . $dbRow['aplpcode'] . "\" .
     ?location a ?type .
     }";
  
@@ -235,21 +210,19 @@ function pcodeLookup($dbRow)
     
     if ($queryResult->num_rows() == 0) 
     {
-        $log->write("Look up failed. Description is about to be loaded for " . $row['settlementPcode']);
+        $log->write("Look up failed. Description is about to be loaded for " . $dbRow['aplpcode']);
     }
     else 
     {
-        //print_r($queryResult);
         while($row = $queryResult->fetch_array())
         {  
             if ($row["type"] == 'http://hxl.humanitarianresponse.info/ns/#APL')
             {
                 $lookUpSuccessful = true;
-                //$log->write($dbRow['settlementPcode'] . " found!!!");
             }
             else
             {
-                $log->write($dbRow['settlementPcode'] . " is of type: " . $row["type"] . ".");
+                $log->write($dbRow['aplpcode'] . " is of type: " . $row["type"] . ".");
             }
         } 
     }
@@ -272,22 +245,11 @@ function nameLookup($dbRow)
     $query = "PREFIX hxl: <http://hxl.humanitarianresponse.info/ns/#>
 
     SELECT * WHERE {
-    ?location hxl:featurefName \"" . trim($dbRow['settlementName']) . "\" . 
+    ?location hxl:featurefName \"" . trim($dbRow['easyname']) . "\" . 
     ?location a ?type .
     }";
 
     
-/*
-    echo '<br>';
-    echo htmlspecialchars($query);
-    echo '<br>';
-*/ 
-    
-    /*
-    if ($dbRow['settlementPcode'] == "UNHCR-POC-81-Test" ||
-        $dbRow['settlementPcode'] == "UNHCR-POC-80")
-                $log->write($dbRow['settlementPcode'] . " iiiiiiiiiiiiis: ");
-*/
     $queryResult = getQueryResults($query);
     
     
@@ -297,27 +259,86 @@ echo $queryResult->num_rows();
     
     if ($queryResult->num_rows() == 0) 
     {
-        $log->write("Error: name " . trim($dbRow['settlementName']) . " not found.");//
+        $log->write("Error: name " . trim($dbRow['easyname']) . " not found.");//
     }
     else 
     {
-        //print_r($queryResult);
         while($row = $queryResult->fetch_array())
         {  
             if ($row["type"] == 'http://hxl.humanitarianresponse.info/ns/#APL')
             {
                 $lookUpSuccessful = true;
-                //$log->write(trim($dbRow['settlementName']) . " found!!!");
             }
             else
             {
-                $log->write(trim($dbRow['settlementName']) . " is of type: " . $row["type"] . ".");
+                $log->write(trim($dbRow['easyname']) . " is of type: " . $row["type"] . ".");
             }
         } 
     }
      
     return $lookUpSuccessful;
 }
+
+/*******************************
+ * 
+ *****************************/
+function locationLookup($easyName)
+{
+    global $log;
+    
+    $lookUpSuccessful = false;
+    
+    $query= "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX hxl: <http://hxl.humanitarianresponse.info/ns/#>
+
+    SELECT * WHERE { GRAPH ?graph {
+    ?location ?typeOfThePlace ?easyname .
+    FILTER regex(?easyname, \"" . $easyName . "\", \"i\" )
+    ?location ?predicate ?object .
+    } }";
+ 
+/*
+    echo '<br>';
+    echo htmlspecialchars($query);
+    echo '<br>';
+ */
+    
+    $queryResult = getQueryResults($query);
+    
+    if ($queryResult->num_rows() == 0) 
+    {
+        $log->write("<br><br>" . "Look up failed. Description is about to be loaded for " . $easyName . "<br><br>");
+    }
+    else 
+    {
+        $lookUpSuccessful = true;
+        /*print_r("<pre>");
+        print_r($queryResult);
+        print_r("</pre>");*/
+        
+        
+                print_r("<br>--------------------------------<br>");
+                print_r("<b>" . $easyName . ":</b><br>");
+        while($row = $queryResult->fetch_array())
+        {  
+            if ($row["graph"] != 'http://hxl.humanitarianresponse.info/data/datacontainers/1234567890.111111')
+            {
+                print_r("graph: " . $row["graph"] . "<br>");
+                print_r($row["location"] . " - ");
+                print_r($row["predicate"] . " - ");
+                print_r($row["object"] . " . <br>");
+                print_r("<br>");
+            }
+            else
+            {
+                continue;
+            }
+        } 
+    }
+     
+    return $lookUpSuccessful;
+}
+
 
 /*******************************
  *
@@ -330,34 +351,20 @@ function makeTtlFromRow($row)
 
     $rowSources = strtolower(str_replace(" ", "", $row['source']));
     $currentSources = array();
-    /*
-    echo 'proof on ' . $rowSources . ' : <br>';
-    print_r($sources);
-    echo '<br>';
-    */
+    
     if (empty($rowSources) ||
         count($sources[$rowSources]) == 0) {
         $currentSources[$rowSources] = "UNHCR";
-        $log->write("No source found for the report of " . $row['ReportDate']);
+        $log->write("Warning: No source found for the report of " . $row['ReportDate']);
     }
     else
     {
         $currentSources = $sources[$rowSources];
     }
     
-    /*
-    echo '<pre>';
-    print_r($sources);
-    echo '</pre>';
-     *
-    echo 'source:<br>';
-    echo $row['source'];
-    echo 'source:<br>';
-    echo $rowSources;
-    echo 'Sources for a row: <br>';
-    print_r($currentSources);
-    echo '<br>';
-    */
+    
+    
+    /*  We skip this useless totals which also contain some mistakes.
     ////////////////////
     $sex = "";
     $age = "";
@@ -368,7 +375,7 @@ function makeTtlFromRow($row)
     $sex = "";
     $age = "";
     $stringData .= makeTtlPopDescription($row, $sex, $age, $row['TotalRefPop_I'], $currentSources);
-
+*/
     ////////////////////
     $age = "ages_0-4";
     //$row['DEM_04_M']
@@ -406,7 +413,7 @@ function makeTtlFromRow($row)
     $stringData .= makeTtlPopDescription($row, $sex, $age, $row['DEM_1859_F'], $currentSources);
 
     ////////////////////
-    $age = "ages_60";
+    $age = "ages_60_and_over";
     //$row['DEM_60_M']
     $sex = "male";
     $stringData .= makeTtlPopDescription($row, $sex, $age, $row['DEM_60_M'], $currentSources);
@@ -423,36 +430,119 @@ function makeTtlFromRow($row)
  *****************************/
 function makeTtlPopDescription($row, $sex, $age, $popCount, $sources)
 {
-    global $log, $ttlPersonCount, $ttlHouseholdCount, $ttlPopDescription, $ttlSex, $ttlAge, $ttlSubject, $ttlMethod, $ttlSource;
+    if ($popCount == 0) return;
+    
+    global $log, $ttlPersonCount, $ttlHouseholdCount, $ttlPopDescription, $ttlSubject, $ttlSex, $ttlAge, $ttlMethod, $ttlSource;
     global $defaultPopulationType;
 
-    $ttlSubject = str_replace("[%populationType%]", $defaultPopulationType, $ttlSubject);
-    $ttlSubject = str_replace("[%countryPCode%]", $row['currentCountryPcode'], $ttlSubject);
-    $ttlSubject = str_replace("[%campPCode%]", $row['settlementPcode'], $ttlSubject);
-    $ttlSubject = str_replace("[%originPCode%]", $row['origin'], $ttlSubject);
+    $settlementNamePcode = '';
+    
+    
+    /*
+    echo '<pre>';
+                print_r($row);
+                echo '</pre>';
+                echo "<br />";
+     * 
+     */
+                
+    if (empty($row['aplpcode'])) 
+    {
+        if (empty($row['pplpcode'])) 
+        {
+            $settlementNamePcode = $row['easyname'];
+            $placeType = "apl";
+        }
+        else
+        {
+            if (strlen($row['pplpcode']) <= 3)
+            {
+                $settlementNamePcode = $row['pplpcode'];
+                $placeType = "country";
+            }
+            else
+            {
+                $settlementNamePcode = $row['pplpcode'];
+                $placeType = "admin";
+            }
+        }
+    }
+    else
+    {
+        $settlementNamePcode = $row['aplpcode'];
+        $placeType = "apl";
+    }
+    
+    // Quick fix about origin:
+    $origin = 'unknown';
+    switch ($row['origin'])
+    {
+        case "Mali":
+            $origin = 'mli';
+            break;
+        case "Burkina Faso":
+            $origin = 'bfa';
+            break;
+        case "Niger":
+            $origin = 'ner';
+            break;
+        case "Mauritania":
+            $origin = 'mrt';
+            break;
+        case "Niger":
+            $origin = 'ner';
+            break;
+        case "Guinea":
+            $origin = 'gin';
+            break;
+        case "Togo":
+            $origin = 'tgo';
+            break;
+        default:
+            $origin = 'unknown';
+            break;
+    }
+    
+       /* 
+    echo ".<br>";
+    echo $row['aplpcode'];
+    
+    echo "<br>";
+    echo $row['pplpcode'];
+    
+    echo "<br>";
+    echo $row['easyname'];
+    
+    echo "<br>=>";
+    echo $settlementNamePcode;
+        * 
+        */
+    
+    // Subject
+    $ttlSubjectTemp = $ttlSubject;
+    $ttlSubjectTemp = str_replace("[%populationType%]", $defaultPopulationType, $ttlSubjectTemp);
+    $ttlSubjectTemp = str_replace("[%countryPCode%]", $row['countrycode'], $ttlSubjectTemp);
+    $ttlSubjectTemp = str_replace("[%campPCode%]", $settlementNamePcode, $ttlSubjectTemp);
+    $ttlSubjectTemp = str_replace("[%originPCode%]", $origin, $ttlSubjectTemp);
 
+    // Description
     $ttlSexTemp = $ttlSex;
     $ttlAgeTemp = $ttlAge;
     if (empty($sex) && empty($age))
     {
-            $ttlSexTemp = "";
-            $ttlAgeTemp = "";
+        $ttlSexTemp = "";
+        $ttlAgeTemp = "";
     }
     else
     {
-            $ttlSexTemp = str_replace("[%sex%]", $sex, $ttlSexTemp);
-            $ttlAgeTemp = str_replace("[%age%]", $age, $ttlAgeTemp);		
+        $ttlSexTemp = str_replace("[%sex%]", $sex, $ttlSexTemp);
+        $ttlAgeTemp = str_replace("[%age%]", $age, $ttlAgeTemp);		
     }
 
     $ttlPopDescriptionTemp = $ttlPopDescription;
     $ttlPopDescriptionTemp = str_replace("[%ttlSex%]", $ttlSexTemp, $ttlPopDescriptionTemp);
     $ttlPopDescriptionTemp = str_replace("[%ttlAge%]", $ttlAgeTemp, $ttlPopDescriptionTemp);
 
-    $ttlSubjectTemp = $ttlSubject;
-    $ttlSubjectTemp = str_replace("[%originPCode%]", $row['origin'], $ttlSubjectTemp);
-
-    //$ttlSubjectTemp = $ttlSubject;
-    $ttlSubjectTemp = str_replace("[%originPCode%]", $row['origin'], $ttlSubjectTemp);
     if (empty($sex) && empty($age))
     {
         $ttlSubjectTemp = str_replace("[%sex%]/[%age%]", "household", $ttlSubjectTemp);
@@ -473,40 +563,24 @@ function makeTtlPopDescription($row, $sex, $age, $popCount, $sources)
         $ttlPopDescriptionTemp = str_replace("[%ttlHouseholdCount%]", $ttlHouseholdCountTemp, $ttlPopDescriptionTemp);
     }
 
-
-    $ttlPopDescriptionTemp = str_replace("[%countryPCode%]", $row['currentCountryPcode'], $ttlPopDescriptionTemp);
-    $ttlPopDescriptionTemp = str_replace("[%countryPCode%]", $row['currentCountryPcode'], $ttlPopDescriptionTemp);
-    $ttlPopDescriptionTemp = str_replace("[%campPCode%]", $row['settlementPcode'], $ttlPopDescriptionTemp);
-    //$ttlPopDescriptionTemp = str_replace("[%popTypePart%]", $popTypePart, $ttlPopDescriptionTemp);
+    // atLocation
+    $ttlPopDescriptionTemp = str_replace("[%placeType%]", $placeType, $ttlPopDescriptionTemp);
+    $ttlPopDescriptionTemp = str_replace("[%countryPCode%]", $row['countrycode'], $ttlPopDescriptionTemp);
+    $ttlPopDescriptionTemp = str_replace("[%campPCode%]", $settlementNamePcode, $ttlPopDescriptionTemp);
     
     
-    
-    /*
-    echo '<pre>';
-    print_r($sources);
-    echo '</pre>';
-    echo count($sources) . '<br>';
-    
-    if (count($sources) == 0 ) echo "sou0!!!!!!!!!!!!!!!!!!";
-    if (count($sources) > 1 ) echo "sou2";
-    
-    */
     $ttlSources = '';
     foreach ($sources as $source)
     {
-    //echo '<br> -- makeTtlPopDescription -- :' . $source;
         $ttlSources .= str_replace("[%source%]", strtolower($source), $ttlSource);
     }
-    
-    
-    
+        
     $ttlMethodTemp = str_replace("[%method%]", "undefined", $ttlMethod);
     
     $ttlPopDescriptionTemp = str_replace("[%ttlSource%]", $ttlSources, $ttlPopDescriptionTemp);
     $ttlPopDescriptionTemp = str_replace("[%ttlMethod%]", $ttlMethodTemp, $ttlPopDescriptionTemp);
     $ttlPopDescriptionTemp = str_replace("[%subject%]", $ttlSubjectTemp, $ttlPopDescriptionTemp);
 
-   // echo '<br> -- ttlPopDescriptionTemp: -- :' . htmlspecialchars($ttlPopDescriptionTemp);
         
     return $ttlPopDescriptionTemp;
 }
@@ -537,17 +611,12 @@ function translateSources()
         }
     }
     
-    //print_r($array);
-    
     return $array;
 }
 
 
-/* TODO:
- * Spot what is irrelevant like an empty total if there are some counts...
- */
-/*
- *
+/* 
+ * 
  */
 function countAvailable($row, $reportDate)
 {
@@ -566,7 +635,7 @@ function countAvailable($row, $reportDate)
         empty($row['TotalRefPop_HH']) &
         empty($row['TotalRefPop_I']))
     {
-        $log->write("Warning: No detail of population count found at " . $row['settlementPcode'] . " on " . $reportDate);
+        $log->write("Warning: No detail of population count found at " . $row['aplpcode'] . " on " . $reportDate);
         return false;
     }
     else
@@ -574,6 +643,7 @@ function countAvailable($row, $reportDate)
         return true;
     }
 }
+
 
 /*******************************
  *
@@ -588,11 +658,7 @@ function printResultArray($dbContent)
     // The Updated date doesn't correspond at all and can differ significantly from the date it is supposed to be valid on.
     // The report date is used because it is the closest from the reality.
     $reportDate = $row['ReportDate'];
-    /*if ($row['ReportDate'] != $row['UpdatedDate'])
-    {
-        $reportDate = $row['UpdatedDate'];
-    }*/
-
+    
     echo "<table><tr>";
     echo "<td>#</td>";
     echo "<td>ReportDate</td>";
@@ -619,8 +685,8 @@ function printResultArray($dbContent)
         echo "<tr>";
         echo "<td>$i</td>";
         echo "<td>{$reportDate}</td>";
-        echo "<td>{$row['settlementPcode']}</td>";
-        echo "<td>{$row['currentCountryPcode']}</td>";
+        echo "<td>{$row['aplpcode']}</td>";
+        echo "<td>{$row['countrycode']}</td>";
         echo "<td>{$row['origin']}</td>";
         echo "<td>{$row['TotalRefPop_HH']}</td>";
         echo "<td>{$row['TotalRefPop_I']}</td>";
@@ -687,44 +753,6 @@ function displayDropEmergencyContainers($dbContent)
     $fileHandle = fopen($curlDropFile, 'w') or die("can't open file");
     fwrite($fileHandle, $stringData);
     fclose($fileHandle);
-}
-
-/*****************************
- *
- *****************************/
-function giveFirstRow($dbContent)
-{
-    global $reporter, $ttlContainerHeader, $ttlContainerUri, $ttlPrefixes, $currentEmergency;
-    global $timeStamp, $scriptDate;
-    global $log;
-
-    $i = 0;
-    $containerUriArray = array();
-    $containerArray = array();
-    
-    while($row = mysqli_fetch_array($dbContent))
-    {
-        $stringData = '';
-        $ttlCamp = makeTtlFromRow($row);
-
-        if ($ttlCamp != false)
-        {
-            $ttlContainerUri = str_replace("[%timeStamp%]", $timeStamp, $ttlContainerUri);
-            array_push($containerUriArray, $ttlContainerUri);
-
-            //$stringData .= $ttlPrefixes;
-            $reportDate = $row['ReportDate'];
-            if ($row['ReportDate'] != $row['UpdatedDate'])
-            {
-                $reportDate = $row['UpdatedDate'];
-            }
-            $stringData .= makeContainerHeader($scriptDate, $ttlContainerUri, $reporter, $ttlContainerHeader, $currentEmergency, $reportDate);
-
-            array_push($containerArray, $stringData);
-        }
-    }
-    
-    return array ($containerUriArray, $containerArray);
 }
 
 ?>
